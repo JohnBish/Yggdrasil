@@ -590,6 +590,28 @@ class AnimPlayer:
                 self.master.after(int(TICK_DELAY * 5000), self.master.update())
 
 
+class Mines:
+    chunks = []
+
+    def update(self, master):
+        if master.player.x <= MAP_WIDTH / 2 + 1:
+            pass
+
+    @staticmethod
+    def load_chunk(X, Y, seed):
+        return ([
+            [ProceduralTerrain.generate_mine_tile(x, y, seed=seed) for y in range(32)]
+            for x in range(64)
+        ], (X, Y))
+
+    @staticmethod
+    def generate_map(map):
+        _map = []
+        chunks = []
+        for c in chunks:
+            pass
+
+
 class ProceduralTerrain:
     @staticmethod
     def dot(g, x, y):
@@ -689,10 +711,7 @@ class MineShaft(Tile):
 
     def trigger(self, app, player):
         app.entityMap = [[]]
-        _map = [
-            [ProceduralTerrain.generate_mine_tile(x, y, seed=app.save.MINE_SEED) for y in range(32)]
-            for x in range(32)
-        ]
+        _map = Mines.load_chunk(0, 0, app.save.MINE_SEED)[0]
         for row in _map:
             row.append(TILES["\n"])
         app.save.map = 'mine'
@@ -851,28 +870,41 @@ class Stag(Enemy):
         super().__init__(name, "V", health, True, speed, item, pos)
         self.appendages.append(EntityAppendage(self, (-1, 0), (-1, 0),"Y", math.inf, damage=item.damage, piercing=False))
         self.appendages.append(EntityAppendage(self, (0, -self.direction), (0, -self.direction),"=", math.inf, damage=item.damage, piercing=False))
-        self.appendages.append(EntityAppendage(self, (self.direction, self.direction), (self.direction, self.direction),"\\", math.inf, damage=item.damage, piercing=False))
-        self.appendages.append(EntityAppendage(self, (1, -self.direction), (1, -self.direction),"|", math.inf, damage=item.damage, piercing=False))
+        self.appendages.append(self.generate_leg((1, 1)))
+        self.appendages.append(self.generate_leg((1, -1)))
         self.items.append(secondaryItem)
 
     def update(self, map, emap, app):
-        dx = app.player.x - self.x
-        dy = app.player.y - self.y
+        dy = app.player.x - self.x
+        dx = app.player.y - self.y
         moveable = (random.randint(0, TICK_FREQUENCY) + 1) * self.speed > TICK_FREQUENCY
         if moveable:
             if abs(dx) <= 5 and dx != 0:
-                self.move(map, emap, (int(dx / abs(dx)), 0), app)
+                self.move(map, emap, (0, int(-dx / abs(dx))), app)
+                self.appendages[2] = self.generate_leg((1, 1))
+                self.appendages[3] = self.generate_leg((1, -1))
             elif abs(dx) >= 10 and dx != 0:
-                self.move(map, emap, (int(-dx / abs(dx)), 0), app)
-            elif dy != 0:
-                self.move(map, emap, (0, int(-dy / abs(dy))), app)
+                self.move(map, emap, (0, int(dx / abs(dx))), app)
+                self.appendages[2] = self.generate_leg((1, 1))
+                self.appendages[3] = self.generate_leg((1, -1))
+            if dy != 0:
+                self.move(map, emap, (int(dy / abs(dy)), 0), app)
+                self.appendages[2] = self.generate_leg((1, 1))
         usable = True #random.randint(0, round(TICK_FREQUENCY / 4)) == 0
-        if usable and dy != 0:
-            self.direction = int((dy) / abs(dy))
-            if abs(app.player.x - self.x) <= 5 and abs(app.player.y - self.y) <= 5 and app.player.y - self.y != 0:
-                self.use(app)
-            else:
-                self.use_secondary(app)
+        self.use_secondary(app)
+        # if usable and dy != 0:
+        #     self.direction = int((dy) / abs(dy))
+        #     if abs(app.player.x - self.x) <= 5 and abs(app.player.y - self.y) <= 5 and app.player.y - self.y != 0:
+        #         self.use(app)
+        #     else:
+        #         self.use_secondary(app)
+
+    def generate_leg(self, offset):
+        state = (self.x + self.y + offset[1]) % 3
+        if state:
+            return EntityAppendage(self, offset, offset,"\\", math.inf, damage=self.item.damage, piercing=False)
+        else:
+            return EntityAppendage(self, offset, offset,"|", math.inf, damage=self.item.damage, piercing=False)
 
 
 class NPC(Entity):
@@ -1056,7 +1088,7 @@ def placeable_callback(item, master, app):
     pass
 
 def stag1(app):
-    app.entities.append(Stag("1", 500, 1.15, Sword(*WEAPONS['Rusty Sword'], (0, 0)), Bow(*WEAPONS['Wooden Bow'], (0, 0)), (10, 13)))
+    app.entities.append(Stag("1", 500, 3, Sword(*WEAPONS['Rusty Sword'], (0, 0)), Bow(*WEAPONS['Wooden Bow'], (0, 0)), (10, 13)))
 
 
 TILES = {
